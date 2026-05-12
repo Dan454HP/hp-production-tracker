@@ -152,7 +152,7 @@
       <div class="auth-avatar" id="authAvatar">?</div>
       <div><div class="auth-name" id="authName">—</div><div class="auth-email" id="authEmail">—</div></div>
     </div>
-    <button class="btn btn-primary" id="signInBtn" onclick="signIn()">
+    <button class="btn btn-primary" id="signInBtn" onclick="signIn()" disabled style="opacity:0.6;cursor:not-allowed;">
       <svg width="17" height="17" viewBox="0 0 23 23" fill="none"><rect x="1" y="1" width="10" height="10" fill="#f25022"/><rect x="12" y="1" width="10" height="10" fill="#7fba00"/><rect x="1" y="12" width="10" height="10" fill="#00a4ef"/><rect x="12" y="12" width="10" height="10" fill="#ffb900"/></svg>
       Sign in with Microsoft 365
     </button>
@@ -323,8 +323,14 @@ async function initMSAL(){
     const resp=await msalApp.handleRedirectPromise();
     if(resp){ token=resp.accessToken; msalApp.setActiveAccount(resp.account); await afterLogin(); return; }
     const accs=msalApp.getAllAccounts();
-    if(accs.length){ msalApp.setActiveAccount(accs[0]); await getToken(); await afterLogin(); }
-  }catch(e){ console.error('MSAL init:',e); }
+    if(accs.length){ msalApp.setActiveAccount(accs[0]); await getToken(); await afterLogin(); return; }
+    // MSAL ready — enable sign in button
+    const btn=document.getElementById('signInBtn');
+    if(btn){ btn.disabled=false; btn.style.opacity='1'; btn.style.cursor='pointer'; }
+  }catch(e){ console.error('MSAL init:',e);
+    const btn=document.getElementById('signInBtn');
+    if(btn){ btn.disabled=false; btn.style.opacity='1'; btn.style.cursor='pointer'; }
+  }
 }
 
 async function getToken(){
