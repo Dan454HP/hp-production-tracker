@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hip Pocket — Decoration Production Tracker</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-authentication-library-for-js/3.18.0/msal-browser.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&display=swap');
+  :root{--bg:#0f0f0f;--bg2:#161616;--bg3:#1e1e1e;--bg4:#252525;--border:#2a2a2a;--border2:#333;--text:#e8e4dc;--text2:#8a8680;--text3:#555;--orange:#e8620a;--orange-dim:#3a1a06;--amber:#d4900a;--amber-dim:#2e1f04;--teal:#0a9e8a;--teal-dim:#041e1b;--blue:#1a7fd4;--blue-dim:#051a2e;--red:#d43a2a;--red-dim:#2e0a06;--green:#2ab84a;--green-dim:#062010;--purple:#8a4ad4;--purple-dim:#1a0a2e;--radius:6px;--radius-lg:10px;}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;font-size:14px;min-height:100vh;}
+  .auth-screen{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;gap:24px;padding:40px;}
+  .auth-logo{font-size:32px;font-weight:800;color:var(--orange);letter-spacing:-1px;}
+  .auth-logo span{color:var(--text);}
+  .auth-card{background:var(--bg2);border:1px solid var(--border2);border-radius:16px;padding:36px 40px;max-width:440px;width:100%;display:flex;flex-direction:column;gap:16px;}
+  .auth-title{font-size:20px;font-weight:800;}
+  .auth-sub{font-size:13px;color:var(--text2);line-height:1.6;}
+  .auth-user{display:flex;align-items:center;gap:12px;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--radius);padding:12px 14px;}
+  .auth-avatar{width:36px;height:36px;border-radius:50%;background:var(--orange);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;color:#fff;flex-shrink:0;}
+  .auth-name{font-size:14px;font-weight:700;}
+  .auth-email{font-size:11px;color:var(--text2);font-family:'DM Mono',monospace;}
+  .btn{padding:12px 20px;border-radius:var(--radius);border:none;cursor:pointer;font-family:'Syne',sans-serif;font-size:14px;font-weight:700;transition:all .15s;display:flex;align-items:center;justify-content:center;gap:8px;width:100%;}
+  .btn-primary{background:var(--orange);color:#fff;}
+  .btn-primary:hover{background:#c85208;}
+  .btn-primary:disabled{background:#444;cursor:not-allowed;}
+  .btn-ghost{background:var(--bg3);color:var(--text);border:1px solid var(--border2);}
+  .btn-ghost:hover{background:var(--bg4);}
+  .btn-sm{padding:7px 12px;font-size:12px;width:auto;}
+  .btn-danger{background:var(--red-dim);color:var(--red);border:1px solid var(--red);}
+  .auth-status{font-size:12px;font-family:'DM Mono',monospace;padding:9px 12px;border-radius:var(--radius);display:none;}
+  .auth-status.show{display:block;}
+  .s-info{background:var(--blue-dim);color:var(--blue);border:1px solid var(--blue);}
+  .s-err{background:var(--red-dim);color:var(--red);border:1px solid var(--red);}
+  .s-ok{background:var(--green-dim);color:var(--green);border:1px solid var(--green);}
+  hr{border:none;border-top:1px solid var(--border);}
+  .header{background:var(--bg2);border-bottom:1px solid var(--border);padding:11px 18px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
+  .logo{font-size:16px;font-weight:800;color:var(--orange);}
+  .logo span{color:var(--text);}
+  .header-sub{font-size:11px;color:var(--text2);font-family:'DM Mono',monospace;}
+  .live-dot{width:6px;height:6px;border-radius:50%;background:var(--green);display:inline-block;animation:pulse 2s infinite;margin-right:5px;}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+  .sync-bar{padding:6px 18px;font-size:11px;font-family:'DM Mono',monospace;}
+  .sync-bar.hidden{display:none;}
+  .sync-bar.info{background:var(--blue-dim);border-bottom:1px solid var(--blue);color:var(--blue);}
+  .sync-bar.ok{background:var(--green-dim);border-bottom:1px solid var(--green);color:var(--green);}
+  .sync-bar.err{background:var(--red-dim);border-bottom:1px solid var(--red);color:var(--red);}
+  .stats-bar{display:grid;grid-template-columns:repeat(6,1fr);gap:1px;background:var(--border);border-bottom:1px solid var(--border);}
+  .stat{background:var(--bg2);padding:11px 14px;display:flex;flex-direction:column;gap:3px;}
+  .stat-label{font-size:10px;color:var(--text2);font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:.04em;}
+  .stat-value{font-size:22px;font-weight:700;line-height:1;}
+  .v-orange{color:var(--orange)}.v-red{color:var(--red)}.v-amber{color:var(--amber)}.v-teal{color:var(--teal)}.v-green{color:var(--green)}.v-blue{color:var(--blue)}
+  .main{display:flex;height:calc(100vh - 136px);overflow:hidden;}
+  .sidebar{width:250px;min-width:250px;background:var(--bg2);border-right:1px solid var(--border);overflow-y:auto;padding:13px;display:flex;flex-direction:column;gap:13px;}
+  .sidebar-title{font-size:10px;font-family:'DM Mono',monospace;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;padding-bottom:5px;border-bottom:1px solid var(--border);margin-bottom:2px;}
+  .filter-group{display:flex;flex-wrap:wrap;gap:5px;}
+  .filter-pill{padding:4px 9px;border-radius:100px;border:1px solid var(--border2);background:transparent;color:var(--text2);font-size:11px;font-family:'DM Mono',monospace;cursor:pointer;transition:all .15s;}
+  .filter-pill:hover,.filter-pill.active{border-color:var(--orange);color:#fff;background:var(--orange);}
+  .filter-pill.fp-u.active{background:var(--red);border-color:var(--red);}
+  .filter-pill.fp-e.active{background:var(--teal);border-color:var(--teal);}
+  .filter-pill.fp-d.active{background:var(--purple);border-color:var(--purple);}
+  .machine-card{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 10px;margin-bottom:5px;}
+  .machine-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:2px;}
+  .machine-name{font-size:12px;font-weight:600;}
+  .mbadge{font-size:9px;font-family:'DM Mono',monospace;padding:2px 6px;border-radius:100px;}
+  .mbadge-on{background:var(--teal-dim);color:var(--teal);border:1px solid var(--teal);}
+  .mbadge-off{background:var(--bg4);color:var(--text3);border:1px solid var(--border);}
+  .machine-job{font-size:10px;color:var(--text2);font-family:'DM Mono',monospace;}
+  .gang-box{background:var(--orange-dim);border:1px solid var(--orange);border-radius:var(--radius);padding:9px;margin-bottom:6px;}
+  .gang-title{font-size:11px;font-weight:700;color:var(--orange);margin-bottom:5px;}
+  .gang-job{font-size:10px;font-family:'DM Mono',monospace;color:var(--text2);}
+  .empty-note{font-size:11px;font-family:'DM Mono',monospace;color:var(--text3);}
+  .board{flex:1;overflow-x:auto;overflow-y:hidden;display:flex;}
+  .column{min-width:220px;width:220px;border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;}
+  .column:last-child{border-right:none;}
+  .col-header{padding:9px 11px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--bg2);}
+  .col-title{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:700;}
+  .col-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+  .col-count{font-family:'DM Mono',monospace;font-size:10px;color:var(--text2);background:var(--bg4);padding:2px 6px;border-radius:100px;}
+  .col-body{flex:1;overflow-y:auto;padding:7px;display:flex;flex-direction:column;gap:6px;background:var(--bg);}
+  .job-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:9px;cursor:pointer;transition:all .15s;position:relative;overflow:hidden;}
+  .job-card:hover{border-color:var(--border2);background:var(--bg3);transform:translateY(-1px);}
+  .job-card.urgent{border-left:3px solid var(--red);}
+  .job-card.urgent::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--red);}
+  .job-top{display:flex;align-items:flex-start;justify-content:space-between;gap:4px;margin-bottom:6px;}
+  .job-order{font-family:'DM Mono',monospace;font-size:10px;color:var(--text2);}
+  .job-badges{display:flex;gap:3px;flex-wrap:wrap;justify-content:flex-end;}
+  .badge{font-size:9px;font-family:'DM Mono',monospace;padding:2px 5px;border-radius:100px;font-weight:500;white-space:nowrap;}
+  .b-urgent{background:var(--red-dim);color:var(--red);border:1px solid var(--red);}
+  .b-emb{background:var(--teal-dim);color:var(--teal);border:1px solid var(--teal);}
+  .b-dtf{background:var(--purple-dim);color:var(--purple);border:1px solid var(--purple);}
+  .b-new{background:var(--blue-dim);color:var(--blue);border:1px solid var(--blue);}
+  .b-airlie{background:var(--teal-dim);color:var(--teal);border:1px solid var(--teal);}
+  .job-customer{font-size:12px;font-weight:700;line-height:1.3;margin-bottom:3px;}
+  .job-desc{font-size:10px;color:var(--text2);line-height:1.5;margin-bottom:6px;}
+  .job-meta{display:flex;align-items:center;justify-content:space-between;}
+  .job-qty{font-family:'DM Mono',monospace;font-size:11px;background:var(--bg4);padding:2px 7px;border-radius:4px;}
+  .job-due{font-family:'DM Mono',monospace;font-size:10px;}
+  .due-ok{color:var(--text3)}.due-soon{color:var(--amber)}.due-late{color:var(--red);}
+  .gang-ind{background:var(--orange-dim);border:1px solid var(--orange);border-radius:4px;padding:3px 6px;margin-top:4px;font-size:9px;font-family:'DM Mono',monospace;color:var(--orange);}
+  .empty-col{text-align:center;color:var(--text3);font-size:11px;font-family:'DM Mono',monospace;padding:14px 0;}
+  .detail-panel{width:292px;min-width:292px;background:var(--bg2);border-left:1px solid var(--border);overflow-y:auto;padding:16px;display:none;flex-direction:column;gap:13px;}
+  .detail-panel.open{display:flex;}
+  .dp-order{font-family:'DM Mono',monospace;font-size:11px;color:var(--text2);margin-bottom:3px;}
+  .dp-customer{font-size:17px;font-weight:800;line-height:1.2;}
+  .close-btn{background:none;border:none;color:var(--text2);font-size:20px;cursor:pointer;line-height:1;}
+  .close-btn:hover{color:var(--text);}
+  .ds{border-top:1px solid var(--border);padding-top:11px;}
+  .ds-title{font-size:10px;font-family:'DM Mono',monospace;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;}
+  .drow{display:flex;justify-content:space-between;align-items:flex-start;gap:6px;margin-bottom:6px;}
+  .dk{font-size:11px;color:var(--text2);}
+  .dv{font-size:11px;font-weight:600;text-align:right;font-family:'DM Mono',monospace;}
+  .proof-banner{background:var(--blue-dim);border:1px solid var(--blue);border-radius:var(--radius);padding:8px 10px;font-size:11px;color:var(--blue);margin-bottom:5px;}
+  .tl-item{display:flex;gap:10px;padding-bottom:11px;position:relative;}
+  .tl-item:not(:last-child)::before{content:'';position:absolute;left:6px;top:14px;bottom:0;width:1px;background:var(--border2);}
+  .tl-dot{width:13px;height:13px;border-radius:50%;flex-shrink:0;margin-top:2px;}
+  .tl-done{background:var(--green)}.tl-cur{background:var(--orange);animation:pulse 2s infinite;}.tl-pend{background:var(--bg4);border:1px solid var(--border2);}
+  .tl-label{font-size:11px;font-weight:600;}
+  .tl-sub{font-size:10px;color:var(--text2);font-family:'DM Mono',monospace;}
+  .action-btns{display:flex;flex-direction:column;gap:6px;}
+  .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:200;align-items:center;justify-content:center;}
+  .modal-overlay.open{display:flex;}
+  .modal{background:var(--bg2);border:1px solid var(--border2);border-radius:12px;width:500px;max-height:88vh;overflow-y:auto;padding:24px;}
+  .modal-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px;}
+  .modal-title{font-size:16px;font-weight:800;}
+  .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:11px;}
+  .fg{display:flex;flex-direction:column;gap:5px;}
+  .fg.full{grid-column:1/-1;}
+  .form-label{font-size:10px;font-family:'DM Mono',monospace;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;}
+  .fi,.fs,.ft{background:var(--bg3);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);font-family:'Syne',sans-serif;font-size:12px;padding:8px 11px;outline:none;transition:border-color .15s;width:100%;}
+  .fi:focus,.fs:focus,.ft:focus{border-color:var(--orange);}
+  .fs option{background:var(--bg3);}
+  .ft{resize:vertical;min-height:54px;}
+  .cbrow{display:flex;align-items:center;gap:7px;cursor:pointer;font-size:12px;}
+  .cbrow input{accent-color:var(--orange);width:14px;height:14px;cursor:pointer;}
+  .modal-footer{margin-top:16px;display:flex;gap:8px;justify-content:flex-end;}
+  .spinner{display:inline-block;width:13px;height:13px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  ::-webkit-scrollbar{width:5px;height:5px;}
+  ::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px;}
+</style>
+</head>
+<body>
+
+<!-- AUTH -->
+<div class="auth-screen" id="authScreen">
+  <div class="auth-logo">HIP POCKET <span>/ DECO</span></div>
+  <div class="auth-card">
+    <div class="auth-title">Sign in to continue</div>
+    <p class="auth-sub">Sign in with your Hip Pocket Microsoft 365 account. Your jobs sync live with Excel Online on SharePoint.</p>
+    <div class="auth-user" id="authUserBox" style="display:none;">
+      <div class="auth-avatar" id="authAvatar">?</div>
+      <div><div class="auth-name" id="authName">—</div><div class="auth-email" id="authEmail">—</div></div>
+    </div>
+    <button class="btn btn-primary" id="signInBtn" onclick="signIn()">
+      <svg width="17" height="17" viewBox="0 0 23 23" fill="none"><rect x="1" y="1" width="10" height="10" fill="#f25022"/><rect x="12" y="1" width="10" height="10" fill="#7fba00"/><rect x="1" y="12" width="10" height="10" fill="#00a4ef"/><rect x="12" y="12" width="10" height="10" fill="#ffb900"/></svg>
+      Sign in with Microsoft 365
+    </button>
+    <div class="auth-status" id="authStatus"></div>
+    <hr/>
+    <button class="btn btn-ghost" style="font-size:12px;" onclick="useDemoMode()">👀 Preview with demo data</button>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="appScreen" style="display:none;">
+  <div class="sync-bar hidden" id="syncBar"></div>
+  <div class="header">
+    <div style="display:flex;align-items:center;gap:12px;">
+      <div class="logo">HIP POCKET <span>/ DECO</span></div>
+      <div class="header-sub"><span class="live-dot"></span><span id="connLabel">—</span></div>
+    </div>
+    <div style="display:flex;gap:7px;align-items:center;">
+      <span id="clock" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text2);"></span>
+      <button class="btn btn-ghost btn-sm" onclick="openMachines()">⚙ Machines</button>
+      <button class="btn btn-ghost btn-sm" onclick="showGang()">⚡ Gang</button>
+      <button class="btn btn-primary btn-sm" onclick="openNewJob()">+ New Job</button>
+      <button class="btn btn-ghost btn-sm" id="syncBtn" onclick="doSync(true)">↻ Sync</button>
+      <button class="btn btn-ghost btn-sm" style="font-size:11px;" onclick="signOut()">Sign out</button>
+    </div>
+  </div>
+  <div class="stats-bar" id="statsBar"></div>
+  <div class="main">
+    <div class="sidebar">
+      <div><div class="sidebar-title">Filter</div>
+        <div class="filter-group" style="margin-top:6px;">
+          <button class="filter-pill active" onclick="setFilter('all',this)">All</button>
+          <button class="filter-pill fp-u" onclick="setFilter('urgent',this)">🔴 Urgent</button>
+          <button class="filter-pill fp-e" onclick="setFilter('EMB',this)">Embroidery</button>
+          <button class="filter-pill fp-d" onclick="setFilter('DTF',this)">DTF</button>
+          <button class="filter-pill" onclick="setFilter('proof',this)">New Logos</button>
+          <button class="filter-pill" onclick="setFilter('airlie',this)">→ Airlie</button>
+        </div>
+      </div>
+      <div><div class="sidebar-title">Machines</div><div id="machineList" style="margin-top:6px;"></div></div>
+      <div><div class="sidebar-title">Gang Opportunities</div><div id="gangSidebar" style="margin-top:6px;"></div></div>
+      <div><div class="sidebar-title">Today</div><div id="todayStats" style="margin-top:6px;"></div></div>
+    </div>
+    <div class="board" id="board"></div>
+    <div class="detail-panel" id="detailPanel">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;">
+        <div><div class="dp-order" id="dp-order"></div><div class="dp-customer" id="dp-customer"></div></div>
+        <button class="close-btn" onclick="closeDetail()">×</button>
+      </div>
+      <div id="dp-badges" style="display:flex;gap:5px;flex-wrap:wrap;"></div>
+      <div class="ds"><div class="ds-title">Job Details</div><div id="dp-details"></div></div>
+      <div class="ds" id="dp-proof" style="display:none;"><div class="proof-banner">⚠️ New logo — MD proof approval required</div></div>
+      <div class="ds"><div class="ds-title">Progress</div><div id="dp-timeline"></div></div>
+      <div class="ds"><div class="ds-title">Actions</div><div class="action-btns" id="dp-actions"></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- NEW JOB MODAL -->
+<div class="modal-overlay" id="newJobModal">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title">New Decoration Job</div><button class="close-btn" onclick="closeModal('newJobModal')">×</button></div>
+    <div class="form-grid">
+      <div class="fg"><div class="form-label">Erply Order #</div><input class="fi" id="f-order" placeholder="ORD-XXXX"/></div>
+      <div class="fg"><div class="form-label">Customer</div><input class="fi" id="f-customer" placeholder="Customer name"/></div>
+      <div class="fg"><div class="form-label">Decoration Type</div>
+        <select class="fs" id="f-type"><option value="EMB">Embroidery</option><option value="DTF">DTF / Heat Transfer</option><option value="EMB+DTF">Both</option></select>
+      </div>
+      <div class="fg"><div class="form-label">Garment Qty</div><input class="fi" id="f-qty" type="number" placeholder="24"/></div>
+      <div class="fg full"><div class="form-label">Job Description</div><input class="fi" id="f-desc" placeholder="e.g. Hi-vis polos — chest logo + left sleeve"/></div>
+      <div class="fg"><div class="form-label">Logo / Design</div><input class="fi" id="f-logo" placeholder="e.g. Acme Corp v3"/></div>
+      <div class="fg"><div class="form-label">Due Date</div><input class="fi" id="f-due" type="date"/></div>
+      <div class="fg full" style="gap:8px;">
+        <label class="cbrow"><input type="checkbox" id="f-urgent"/> Mark as URGENT</label>
+        <label class="cbrow"><input type="checkbox" id="f-newlogo"/> New logo — proof required (notify MD)</label>
+        <label class="cbrow"><input type="checkbox" id="f-airlie"/> Dispatch to Airlie Beach when complete</label>
+      </div>
+      <div class="fg full"><div class="form-label">Notes</div><textarea class="ft" id="f-notes" placeholder="Special instructions, placement notes..."></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('newJobModal')">Cancel</button>
+      <button class="btn btn-primary btn-sm" onclick="saveJob()">Create Job</button>
+    </div>
+  </div>
+</div>
+
+<!-- MACHINE SETTINGS MODAL -->
+<div class="modal-overlay" id="machineModal">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title">⚙ Machine Settings</div><button class="close-btn" onclick="closeModal('machineModal')">×</button></div>
+    <p style="font-size:12px;color:var(--text2);margin-bottom:14px;">Add, rename, or deactivate machines. Saves to this browser.</p>
+    <div style="display:grid;grid-template-columns:1fr 80px 55px 55px 34px;gap:7px;margin-bottom:7px;">
+      <div class="form-label">Name</div><div class="form-label">Type</div><div class="form-label">Heads</div><div class="form-label">Active</div><div></div>
+    </div>
+    <div id="machineRows"></div>
+    <button class="btn btn-ghost btn-sm" onclick="addMachine()" style="margin-top:9px;">+ Add Machine</button>
+    <div class="modal-footer">
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('machineModal')">Close</button>
+      <button class="btn btn-primary btn-sm" onclick="saveMachines()">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════
+// HIP POCKET M365 CONFIG
+// ══════════════════════════════════════════
+const CLIENT_ID  = 'f8772a89-d47d-4434-bfe3-b934ae88c3a1';
+const TENANT_ID  = '5973374e-c7fa-4d1b-b4c4-0379e71fb140';
+const FILE_PATH  = '/personal/dan_curtin_hippocketworkwear_com_au/Documents/Hip%20Pocket/Production/HP_Production_Tracker.xlsx';
+const TABLE_NAME = 'Jobs';
+const SCOPES     = ['Files.ReadWrite','User.Read'];
+
+const msalCfg = {
+  auth:{ clientId:CLIENT_ID, authority:`https://login.microsoftonline.com/${TENANT_ID}`, redirectUri:location.href.split('?')[0].split('#')[0] },
+  cache:{ cacheLocation:'localStorage', storeAuthStateInCookie:true }
+};
+
+// ══════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════
+let msalApp=null, token=null, isDemo=false;
+let jobs=[], selectedId=null, filterMode='all', syncTimer=null;
+let machines=[
+  {id:'M1',name:'Multi-head',type:'EMB',heads:12,active:true},
+  {id:'M2',name:'Single #1',type:'EMB',heads:1,active:true},
+  {id:'M3',name:'Single #2',type:'EMB',heads:1,active:true},
+  {id:'M4',name:'Single #3',type:'EMB',heads:1,active:true},
+  {id:'M5',name:'DTF Printer',type:'DTF',heads:null,active:true},
+];
+
+const STATUSES=[
+  {id:'Order Received',label:'Order Received',color:'#555'},
+  {id:'Garments Ordered',label:'Garments Ordered',color:'#1a7fd4'},
+  {id:'Proof Pending',label:'Proof Pending',color:'#8a4ad4'},
+  {id:'In Queue',label:'In Queue',color:'#d4900a'},
+  {id:'In Production',label:'In Production',color:'#e8620a'},
+  {id:'Pressing/Finishing',label:'Pressing / Finishing',color:'#0a9e8a'},
+  {id:'QC & Invoicing',label:'QC & Invoicing',color:'#2ab84a'},
+  {id:'Complete',label:'Complete',color:'#333'},
+];
+const SID=STATUSES.map(s=>s.id);
+
+const KEYS=['id','order','customer','desc','type','qty','logo','due','status','urgent','newLogo','airlie','machine','proofApproved','notes','created','completed'];
+
+const DEMO=[
+  {id:'J001',order:'ORD-2831',customer:'BHP Mitsubishi Alliance',desc:'Hi-vis polos — chest + left sleeve logo',type:'EMB',qty:48,logo:'BMA Logo v4',due:'2025-06-12',urgent:'Yes',newLogo:'No',airlie:'No',status:'In Production',machine:'Multi-head',proofApproved:'Yes',notes:'Rush order — site induction Monday',created:'2025-06-09',completed:''},
+  {id:'J002',order:'ORD-2832',customer:'Mackay Airports',desc:'Cotton tees — DTF centre chest print',type:'DTF',qty:24,logo:'Mackay Airport 25th',due:'2025-06-13',urgent:'No',newLogo:'Yes',airlie:'No',status:'Proof Pending',machine:'—',proofApproved:'No',notes:'New logo — awaiting MD proof approval',created:'2025-06-09',completed:''},
+  {id:'J003',order:'ORD-2833',customer:'Endeavour Coal',desc:'Work shirts — chest logo both sides',type:'EMB',qty:36,logo:'Endeavour v2',due:'2025-06-14',urgent:'No',newLogo:'No',airlie:'No',status:'In Queue',machine:'—',proofApproved:'Yes',notes:'',created:'2025-06-09',completed:''},
+  {id:'J004',order:'ORD-2834',customer:'Airlie Marine',desc:'Polo shirts — left chest embroidery',type:'EMB',qty:12,logo:'Airlie Marine v1',due:'2025-06-11',urgent:'Yes',newLogo:'Yes',airlie:'Yes',status:'Proof Pending',machine:'—',proofApproved:'No',notes:'Send to Airlie when done',created:'2025-06-08',completed:''},
+  {id:'J005',order:'ORD-2835',customer:'Endeavour Coal',desc:'Caps — front logo',type:'EMB',qty:24,logo:'Endeavour v2',due:'2025-06-15',urgent:'No',newLogo:'No',airlie:'No',status:'In Queue',machine:'—',proofApproved:'Yes',notes:'Same logo as J003 — gang opportunity',created:'2025-06-09',completed:''},
+  {id:'J006',order:'ORD-2836',customer:'Bowen Basin Drilling',desc:'Safety vests — DTF print back',type:'DTF',qty:30,logo:'BBD Logo v3',due:'2025-06-16',urgent:'No',newLogo:'No',airlie:'No',status:'Garments Ordered',machine:'—',proofApproved:'Yes',notes:'',created:'2025-06-09',completed:''},
+  {id:'J007',order:'ORD-2837',customer:'Isaac Regional Council',desc:'Staff uniforms — left chest + sleeve',type:'EMB',qty:60,logo:'IRC Crest',due:'2025-06-18',urgent:'No',newLogo:'No',airlie:'No',status:'Garments Ordered',machine:'—',proofApproved:'Yes',notes:'Large run — multi-head preferred',created:'2025-06-08',completed:''},
+  {id:'J008',order:'ORD-2838',customer:'BHP Mitsubishi Alliance',desc:'Hi-vis jackets — chest logo',type:'EMB',qty:18,logo:'BMA Logo v4',due:'2025-06-14',urgent:'No',newLogo:'No',airlie:'No',status:'In Queue',machine:'—',proofApproved:'Yes',notes:'Same logo as J001 — gang if possible',created:'2025-06-09',completed:''},
+  {id:'J009',order:'ORD-2839',customer:'Paget Auto Group',desc:'Polo shirts — left chest DTF',type:'DTF',qty:15,logo:'Paget Auto v2',due:'2025-06-13',urgent:'Yes',newLogo:'No',airlie:'No',status:'In Production',machine:'DTF Printer',proofApproved:'Yes',notes:'',created:'2025-06-08',completed:''},
+  {id:'J010',order:'ORD-2840',customer:'Coppabella Station',desc:'Work shirts — chest + back',type:'EMB',qty:20,logo:'Coppabella v1',due:'2025-06-19',urgent:'No',newLogo:'Yes',airlie:'No',status:'Order Received',machine:'—',proofApproved:'No',notes:'New client — new logo setup required',created:'2025-06-10',completed:''},
+  {id:'J011',order:'ORD-2841',customer:'Whitsunday Council',desc:'Event tees — DTF full chest',type:'DTF',qty:80,logo:'WC Event 2025',due:'2025-06-20',urgent:'No',newLogo:'No',airlie:'Yes',status:'Pressing/Finishing',machine:'—',proofApproved:'Yes',notes:'Dispatch to Airlie',created:'2025-06-07',completed:''},
+  {id:'J012',order:'ORD-2842',customer:'Mackay Sugar',desc:'Safety helmets + shirts bundle',type:'EMB',qty:40,logo:'Mackay Sugar v5',due:'2025-06-17',urgent:'No',newLogo:'No',airlie:'No',status:'QC & Invoicing',machine:'—',proofApproved:'Yes',notes:'Check stitch count on helmets',created:'2025-06-06',completed:''},
+];
+
+// ══════════════════════════════════════════
+// MSAL AUTH
+// ══════════════════════════════════════════
+async function initMSAL(){
+  try{
+    msalApp=new msal.PublicClientApplication(msalCfg);
+    await msalApp.initialize();
+    const resp=await msalApp.handleRedirectPromise();
+    if(resp){ token=resp.accessToken; msalApp.setActiveAccount(resp.account); await afterLogin(); return; }
+    const accs=msalApp.getAllAccounts();
+    if(accs.length){ msalApp.setActiveAccount(accs[0]); await getToken(); await afterLogin(); }
+  }catch(e){ console.error('MSAL init:',e); }
+}
+
+async function getToken(){
+  try{
+    const r=await msalApp.acquireTokenSilent({scopes:SCOPES,account:msalApp.getActiveAccount()});
+    token=r.accessToken;
+  }catch(e){ token=null; }
+}
+
+async function signIn(){
+  const btn=document.getElementById('signInBtn');
+  btn.disabled=true; btn.innerHTML='<span class="spinner"></span> Signing in…';
+  setAuthStatus('Opening Microsoft sign-in…','s-info');
+  try{
+    let resp;
+    try{ resp=await msalApp.loginPopup({scopes:SCOPES}); }
+    catch(pe){
+      if(pe.errorCode==='popup_window_error'||pe.errorCode==='empty_window_error'){
+        setAuthStatus('Redirecting to Microsoft…','s-info');
+        await msalApp.loginRedirect({scopes:SCOPES}); return;
+      }
+      throw pe;
+    }
+    token=resp.accessToken;
+    msalApp.setActiveAccount(resp.account);
+    await afterLogin();
+  }catch(e){
+    console.error('Login error:',e);
+    setAuthStatus('Sign-in failed: '+(e.message||e.errorCode||'Unknown error. Make sure pop-ups are allowed for this page.'),'s-err');
+    btn.disabled=false; btn.innerHTML='<svg width="17" height="17" viewBox="0 0 23 23" fill="none"><rect x="1" y="1" width="10" height="10" fill="#f25022"/><rect x="12" y="1" width="10" height="10" fill="#7fba00"/><rect x="1" y="12" width="10" height="10" fill="#00a4ef"/><rect x="12" y="12" width="10" height="10" fill="#ffb900"/></svg> Sign in with Microsoft 365';
+  }
+}
+
+async function afterLogin(){
+  try{
+    const me=await gget('/me');
+    const name=me.displayName||me.userPrincipalName||'User';
+    document.getElementById('authAvatar').textContent=name[0].toUpperCase();
+    document.getElementById('authName').textContent=name;
+    document.getElementById('authEmail').textContent=me.mail||me.userPrincipalName||'';
+    document.getElementById('authUserBox').style.display='flex';
+    document.getElementById('connLabel').textContent=name.split(' ')[0]+' · SharePoint Live';
+  }catch(e){}
+  document.getElementById('authScreen').style.display='none';
+  document.getElementById('appScreen').style.display='block';
+  loadMachines(); startClock();
+  await doSync(false);
+  syncTimer=setInterval(()=>doSync(false),60000);
+}
+
+function signOut(){
+  if(syncTimer) clearInterval(syncTimer);
+  const acc=msalApp?.getActiveAccount();
+  if(acc){ msalApp.logoutPopup({account:acc}).catch(()=>msalApp.logoutRedirect({account:acc})); }
+  token=null; jobs=[];
+  document.getElementById('appScreen').style.display='none';
+  document.getElementById('authScreen').style.display='flex';
+}
+
+function useDemoMode(){
+  isDemo=true; jobs=JSON.parse(JSON.stringify(DEMO));
+  loadMachines();
+  document.getElementById('connLabel').textContent='Demo Mode';
+  document.getElementById('authScreen').style.display='none';
+  document.getElementById('appScreen').style.display='block';
+  renderAll(); startClock();
+}
+
+function setAuthStatus(msg,cls){
+  const el=document.getElementById('authStatus');
+  el.textContent=msg; el.className='auth-status show '+cls;
+}
+
+// ══════════════════════════════════════════
+// GRAPH API
+// ══════════════════════════════════════════
+async function gget(path){
+  if(!token) await getToken();
+  const r=await fetch('https://graph.microsoft.com/v1.0'+path,{headers:{Authorization:'Bearer '+token}});
+  if(!r.ok) throw new Error('Graph '+r.status);
+  return r.json();
+}
+async function gpost(path,body){
+  if(!token) await getToken();
+  const r=await fetch('https://graph.microsoft.com/v1.0'+path,{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify(body)});
+  if(!r.ok) throw new Error('Graph '+r.status+': '+await r.text());
+  return r.json();
+}
+async function gpatch(path,body){
+  if(!token) await getToken();
+  const r=await fetch('https://graph.microsoft.com/v1.0'+path,{method:'PATCH',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify(body)});
+  if(!r.ok) throw new Error('Graph '+r.status+': '+await r.text());
+  return r.status===204?{}:r.json();
+}
+
+const itemPath=p=>`/me/drive/root:${p}`;
+
+// ══════════════════════════════════════════
+// EXCEL SYNC
+// ══════════════════════════════════════════
+async function doSync(manual=false){
+  if(isDemo){if(manual)showSync('Demo mode — no live sync','info',2500);return;}
+  try{
+    if(manual){showSync('Syncing with SharePoint…','info');document.getElementById('syncBtn').innerHTML='<span class="spinner"></span>';}
+    const data=await gget(`${itemPath(FILE_PATH)}:/workbook/tables/${TABLE_NAME}/rows`);
+    if(data.value?.length){
+      jobs=data.value.map(row=>{
+        const v=row.values[0], j={};
+        KEYS.forEach((k,i)=>j[k]=v[i]!==undefined&&v[i]!==null?String(v[i]):'');
+        j.qty=parseInt(j.qty)||0;
+        return j;
+      }).filter(j=>j.id&&j.id!=='Job ID');
+    }
+    renderAll();
+    if(manual){const t=new Date().toLocaleTimeString('en-AU',{hour:'2-digit',minute:'2-digit'});showSync('✓ Synced · '+t,'ok',3000);}
+  }catch(e){
+    console.error('Sync error:',e);
+    if(manual) showSync('Sync failed — '+e.message,'err',4000);
+  }finally{
+    document.getElementById('syncBtn').textContent='↻ Sync';
+  }
+}
+
+async function addRow(job){
+  if(isDemo)return;
+  try{ await gpost(`${itemPath(FILE_PATH)}:/workbook/tables/${TABLE_NAME}/rows`,{values:[KEYS.map(k=>job[k]!==undefined?job[k]:'')]}); }
+  catch(e){ showSync('Could not save to Excel — '+e.message,'err',4000); }
+}
+
+async function updateRow(job){
+  if(isDemo)return;
+  try{
+    const data=await gget(`${itemPath(FILE_PATH)}:/workbook/tables/${TABLE_NAME}/rows`);
+    const idx=data.value.findIndex(r=>String(r.values[0][0])===String(job.id));
+    if(idx<0)return;
+    await gpatch(`${itemPath(FILE_PATH)}:/workbook/tables/${TABLE_NAME}/rows/itemAt(index=${idx})`,{values:[KEYS.map(k=>job[k]!==undefined?job[k]:'')]});
+  }catch(e){ showSync('Could not update Excel — '+e.message,'err',4000); }
+}
+
+// ══════════════════════════════════════════
+// UI
+// ══════════════════════════════════════════
+function showSync(msg,type,hide){
+  const b=document.getElementById('syncBar');
+  b.textContent=msg; b.className='sync-bar '+type;
+  if(hide) setTimeout(()=>b.className='sync-bar hidden',hide);
+}
+function startClock(){
+  const t=()=>{const n=new Date(),el=document.getElementById('clock');if(el)el.textContent=n.toLocaleDateString('en-AU',{weekday:'short',day:'numeric',month:'short'})+' · '+n.toLocaleTimeString('en-AU',{hour:'2-digit',minute:'2-digit'});};
+  t();setInterval(t,1000);
+}
+function closeModal(id){document.getElementById(id).classList.remove('open');}
+
+// Machines
+function loadMachines(){try{const s=localStorage.getItem('hp_machines');if(s)machines=JSON.parse(s);}catch(e){}}
+function saveMachines(){localStorage.setItem('hp_machines',JSON.stringify(machines));closeModal('machineModal');renderAll();}
+function openMachines(){
+  document.getElementById('machineRows').innerHTML=machines.map((m,i)=>`
+    <div style="display:grid;grid-template-columns:1fr 80px 55px 55px 34px;gap:7px;margin-bottom:6px;align-items:center;">
+      <input class="fi" style="font-size:11px;padding:6px 9px;" value="${m.name}" oninput="machines[${i}].name=this.value"/>
+      <select class="fs" style="font-size:11px;padding:6px;" onchange="machines[${i}].type=this.value"><option value="EMB" ${m.type==='EMB'?'selected':''}>EMB</option><option value="DTF" ${m.type==='DTF'?'selected':''}>DTF</option></select>
+      <input class="fi" style="font-size:11px;padding:6px 9px;" value="${m.heads||'—'}" oninput="machines[${i}].heads=this.value"/>
+      <select class="fs" style="font-size:11px;padding:6px;" onchange="machines[${i}].active=this.value==='Yes'"><option value="Yes" ${m.active?'selected':''}>Yes</option><option value="No" ${!m.active?'selected':''}>No</option></select>
+      <button class="btn btn-danger btn-sm" style="padding:4px 7px;" onclick="machines.splice(${i},1);openMachines()">✕</button>
+    </div>`).join('');
+  document.getElementById('machineModal').classList.add('open');
+}
+function addMachine(){machines.push({id:'M'+Date.now(),name:'New Machine',type:'EMB',heads:1,active:true});openMachines();}
+
+// Filters
+function setFilter(f,el){filterMode=f;document.querySelectorAll('.filter-pill').forEach(p=>p.classList.remove('active'));el.classList.add('active');renderBoard();}
+function filtered(){
+  if(filterMode==='all') return jobs;
+  if(filterMode==='urgent') return jobs.filter(j=>j.urgent==='Yes');
+  if(filterMode==='proof') return jobs.filter(j=>j.newLogo==='Yes'&&j.proofApproved==='No');
+  if(filterMode==='airlie') return jobs.filter(j=>j.airlie==='Yes');
+  return jobs.filter(j=>j.type===filterMode||j.type==='EMB+DTF');
+}
+
+// Stats
+function renderStats(){
+  const active=jobs.filter(j=>j.status!=='Complete').length;
+  const urgent=jobs.filter(j=>j.urgent==='Yes').length;
+  const prod=jobs.filter(j=>j.status==='In Production').length;
+  const proof=jobs.filter(j=>j.newLogo==='Yes'&&j.proofApproved==='No').length;
+  const airlie=jobs.filter(j=>j.airlie==='Yes'&&j.status!=='Complete').length;
+  const done=jobs.filter(j=>j.status==='Complete').length;
+  document.getElementById('statsBar').innerHTML=[
+    {l:'Active',v:active,c:'v-orange'},{l:'Urgent',v:urgent,c:'v-red'},
+    {l:'In Production',v:prod,c:'v-amber'},{l:'Proof Needed',v:proof,c:'v-blue'},
+    {l:'For Airlie',v:airlie,c:'v-teal'},{l:'Complete',v:done,c:'v-green'},
+  ].map(s=>`<div class="stat"><div class="stat-label">${s.l}</div><div class="stat-value ${s.c}">${s.v}</div></div>`).join('');
+}
+
+// Machines sidebar
+function renderMachines(){
+  document.getElementById('machineList').innerHTML=machines.filter(m=>m.active).map(m=>{
+    const rj=jobs.find(j=>j.machine===m.name&&j.status==='In Production');
+    return `<div class="machine-card"><div class="machine-header"><div class="machine-name">${m.name}${m.heads&&m.heads!=='—'?' ('+m.heads+'hd)':''}</div><div class="mbadge ${rj?'mbadge-on':'mbadge-off'}">${rj?'RUN':'IDLE'}</div></div><div class="machine-job">${rj?rj.customer+' · '+rj.qty+'pc':'Available'}</div></div>`;
+  }).join('');
+}
+
+// Gang
+function gangs(){
+  const map={};
+  jobs.filter(j=>['In Queue','In Production'].includes(j.status)&&j.type!=='DTF'&&j.logo&&j.logo!=='—').forEach(j=>{
+    if(!map[j.logo])map[j.logo]=[];map[j.logo].push(j);
+  });
+  return Object.entries(map).filter(([,v])=>v.length>1);
+}
+function renderGang(){
+  const g=gangs();
+  document.getElementById('gangSidebar').innerHTML=g.length
+    ?g.map(([logo,gj])=>`<div class="gang-box"><div class="gang-title">⚡ ${logo}</div>${gj.map(j=>`<div class="gang-job">${j.order} · ${j.qty}pc</div>`).join('')}<div style="margin-top:4px;font-size:9px;color:var(--orange);">Total: ${gj.reduce((a,j)=>a+(parseInt(j.qty)||0),0)} pcs</div></div>`).join('')
+    :'<div class="empty-note">No gang opportunities</div>';
+}
+function showGang(){
+  const g=gangs();
+  if(!g.length){alert('No gang opportunities right now.');return;}
+  alert('⚡ GANG OPPORTUNITIES\n\n'+g.map(([logo,gj])=>`Logo: ${logo}\n${gj.map(j=>`  ${j.order} — ${j.customer} — ${j.qty}pc`).join('\n')}\n  Total: ${gj.reduce((a,j)=>a+(parseInt(j.qty)||0),0)} garments`).join('\n\n'));
+}
+
+// Today stats
+function renderToday(){
+  const total=jobs.reduce((a,j)=>a+(parseInt(j.qty)||0),0);
+  document.getElementById('todayStats').innerHTML=`
+    <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px;"><span style="color:var(--text2)">EMB</span><span style="font-family:'DM Mono',monospace">${jobs.filter(j=>j.type==='EMB'||j.type==='EMB+DTF').length} jobs</span></div>
+    <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px;"><span style="color:var(--text2)">DTF</span><span style="font-family:'DM Mono',monospace">${jobs.filter(j=>j.type==='DTF'||j.type==='EMB+DTF').length} jobs</span></div>
+    <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px;"><span style="color:var(--text2)">Garments</span><span style="font-family:'DM Mono',monospace;color:var(--orange)">${total}</span></div>
+    <div style="display:flex;justify-content:space-between;font-size:11px;"><span style="color:var(--text2)">Proofs</span><span style="font-family:'DM Mono',monospace;color:var(--blue)">${jobs.filter(j=>j.newLogo==='Yes'&&j.proofApproved==='No').length} pending</span></div>`;
+}
+
+// Board
+function dueClass(d){if(!d)return'due-ok';const diff=(new Date(d)-new Date())/86400000;return diff<0?'due-late':diff<2?'due-soon':'due-ok';}
+function renderBoard(){
+  const fj=filtered();
+  document.getElementById('board').innerHTML=STATUSES.map(col=>{
+    const cj=fj.filter(j=>j.status===col.id);
+    return `<div class="column"><div class="col-header"><div class="col-title"><div class="col-dot" style="background:${col.color}"></div>${col.label}</div><div class="col-count">${cj.length}</div></div><div class="col-body">${cj.length?cj.map(renderCard).join(''):'<div class="empty-col">—</div>'}</div></div>`;
+  }).join('');
+}
+function renderCard(j){
+  const gm=gangs().find(([logo])=>logo===j.logo);
+  const due=j.due?new Date(j.due).toLocaleDateString('en-AU',{day:'numeric',month:'short'}):'—';
+  return `<div class="job-card ${j.urgent==='Yes'?'urgent':''}" onclick="selectJob('${j.id}')">
+    <div class="job-top"><div class="job-order">${j.order}</div><div class="job-badges">
+      ${j.urgent==='Yes'?'<span class="badge b-urgent">URGENT</span>':''}
+      ${j.type==='EMB'||j.type==='EMB+DTF'?'<span class="badge b-emb">EMB</span>':''}
+      ${j.type==='DTF'||j.type==='EMB+DTF'?'<span class="badge b-dtf">DTF</span>':''}
+      ${j.newLogo==='Yes'&&j.proofApproved==='No'?'<span class="badge b-new">PROOF</span>':''}
+      ${j.airlie==='Yes'?'<span class="badge b-airlie">AIRLIE</span>':''}
+    </div></div>
+    <div class="job-customer">${j.customer}</div>
+    <div class="job-desc">${j.desc}</div>
+    <div class="job-meta"><div class="job-qty">${j.qty} pc</div><div class="job-due ${dueClass(j.due)}">Due ${due}</div></div>
+    ${j.machine&&j.machine!=='—'?`<div style="font-size:9px;color:var(--text3);font-family:'DM Mono',monospace;margin-top:3px;">🖥 ${j.machine}</div>`:''}
+    ${gm?`<div class="gang-ind">⚡ ${gm[1].length} jobs share this logo</div>`:''}
+  </div>`;
+}
+
+// Detail panel
+function selectJob(id){
+  selectedId=id;
+  const j=jobs.find(j=>j.id===id);if(!j)return;
+  document.getElementById('detailPanel').classList.add('open');
+  document.getElementById('dp-order').textContent=j.order;
+  document.getElementById('dp-customer').textContent=j.customer;
+  document.getElementById('dp-badges').innerHTML=`
+    ${j.urgent==='Yes'?'<span class="badge b-urgent">URGENT</span>':''}
+    ${j.type==='EMB'?'<span class="badge b-emb">Embroidery</span>':''}
+    ${j.type==='DTF'?'<span class="badge b-dtf">DTF / Heat Transfer</span>':''}
+    ${j.type==='EMB+DTF'?'<span class="badge b-emb">EMB</span><span class="badge b-dtf">DTF</span>':''}
+    ${j.newLogo==='Yes'?'<span class="badge b-new">New Logo</span>':''}
+    ${j.airlie==='Yes'?'<span class="badge b-airlie">→ Airlie</span>':''}`;
+  const due=j.due?new Date(j.due).toLocaleDateString('en-AU',{weekday:'short',day:'numeric',month:'long'}):'—';
+  document.getElementById('dp-details').innerHTML=`
+    <div class="drow"><div class="dk">Description</div><div class="dv" style="font-family:'Syne';font-weight:400;font-size:11px;text-align:right;">${j.desc}</div></div>
+    <div class="drow"><div class="dk">Qty</div><div class="dv">${j.qty} garments</div></div>
+    <div class="drow"><div class="dk">Logo</div><div class="dv">${j.logo||'—'}</div></div>
+    <div class="drow"><div class="dk">Due</div><div class="dv ${dueClass(j.due)}">${due}</div></div>
+    <div class="drow"><div class="dk">Machine</div><div class="dv">${j.machine||'—'}</div></div>
+    ${j.notes?`<div class="drow"><div class="dk">Notes</div><div class="dv" style="font-family:'Syne';font-weight:400;font-size:11px;text-align:right;">${j.notes}</div></div>`:''}`;
+  document.getElementById('dp-proof').style.display=(j.newLogo==='Yes'&&j.proofApproved==='No')?'block':'none';
+  const ci=SID.indexOf(j.status);
+  document.getElementById('dp-timeline').innerHTML=STATUSES.map((s,i)=>{
+    const c=i<ci?'tl-done':i===ci?'tl-cur':'tl-pend';
+    return `<div class="tl-item"><div class="tl-dot ${c}"></div><div><div class="tl-label" style="color:${c==='tl-pend'?'var(--text3)':'var(--text)'}">${s.label}</div>${c==='tl-cur'?'<div class="tl-sub">← Current stage</div>':''}</div></div>`;
+  }).join('');
+  const ns=SID[ci+1],nl=ns?STATUSES.find(s=>s.id===ns)?.label:null;
+  document.getElementById('dp-actions').innerHTML=`
+    ${nl?`<button class="btn btn-primary btn-sm" onclick="advance('${id}')">→ Move to: ${nl}</button>`:''}
+    <select class="fs" style="font-size:11px;" onchange="assignMachine('${id}',this.value)">
+      <option value="—">Assign machine…</option>
+      ${machines.filter(m=>m.active).map(m=>`<option value="${m.name}" ${j.machine===m.name?'selected':''}>${m.name}</option>`).join('')}
+    </select>
+    ${j.urgent!=='Yes'?`<button class="btn btn-ghost btn-sm" onclick="toggleUrgent('${id}')">🔴 Mark Urgent</button>`:''}
+    ${j.newLogo==='Yes'&&j.proofApproved==='No'?`<button class="btn btn-ghost btn-sm" style="color:var(--green);border-color:var(--green);" onclick="approveProof('${id}')">✓ Approve Proof (MD)</button>`:''}
+    <button class="btn btn-ghost btn-sm" style="color:var(--green);" onclick="if(confirm('Mark complete?')){markComplete('${id}')}">✓ Mark Complete</button>`;
+}
+function closeDetail(){document.getElementById('detailPanel').classList.remove('open');selectedId=null;}
+
+async function advance(id){const j=jobs.find(j=>j.id===id);const i=SID.indexOf(j.status);if(i<SID.length-1){j.status=SID[i+1];renderAll();selectJob(id);await updateRow(j);}}
+async function assignMachine(id,m){const j=jobs.find(j=>j.id===id);j.machine=m;renderAll();selectJob(id);await updateRow(j);}
+async function toggleUrgent(id){const j=jobs.find(j=>j.id===id);j.urgent=j.urgent==='Yes'?'No':'Yes';renderAll();selectJob(id);await updateRow(j);}
+async function approveProof(id){const j=jobs.find(j=>j.id===id);j.proofApproved='Yes';j.newLogo='No';if(j.status==='Proof Pending')j.status='In Queue';renderAll();selectJob(id);await updateRow(j);}
+async function markComplete(id){const j=jobs.find(j=>j.id===id);j.status='Complete';j.completed=new Date().toISOString().split('T')[0];renderAll();closeDetail();await updateRow(j);}
+
+// New job
+function openNewJob(){document.getElementById('f-due').value=new Date().toISOString().split('T')[0];document.getElementById('newJobModal').classList.add('open');}
+async function saveJob(){
+  const order=document.getElementById('f-order').value.trim();
+  const customer=document.getElementById('f-customer').value.trim();
+  if(!order||!customer){alert('Please enter an order number and customer name.');return;}
+  const nl=document.getElementById('f-newlogo').checked;
+  const j={
+    id:'J'+String(Date.now()).slice(-7),order,customer,
+    desc:document.getElementById('f-desc').value,
+    type:document.getElementById('f-type').value,
+    qty:parseInt(document.getElementById('f-qty').value)||0,
+    logo:document.getElementById('f-logo').value,
+    due:document.getElementById('f-due').value,
+    urgent:document.getElementById('f-urgent').checked?'Yes':'No',
+    newLogo:nl?'Yes':'No',
+    airlie:document.getElementById('f-airlie').checked?'Yes':'No',
+    status:'Order Received',machine:'—',proofApproved:nl?'No':'Yes',
+    notes:document.getElementById('f-notes').value,
+    created:new Date().toISOString().split('T')[0],completed:'',
+  };
+  jobs.unshift(j);
+  closeModal('newJobModal');
+  renderAll();
+  await addRow(j);
+  ['f-order','f-customer','f-desc','f-qty','f-logo','f-notes'].forEach(id=>document.getElementById(id).value='');
+  ['f-urgent','f-newlogo','f-airlie'].forEach(id=>document.getElementById(id).checked=false);
+}
+
+function renderAll(){renderStats();renderMachines();renderGang();renderToday();renderBoard();}
+initMSAL();
+</script>
+</body>
+</html>
