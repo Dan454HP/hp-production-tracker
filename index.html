@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Hip Pocket — Decoration Production Tracker</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-authentication-library-for-js/3.18.0/msal-browser.min.js"></script>
+<script src="https://alcdn.msauth.net/browser/2.38.3/js/msal-browser.min.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&display=swap');
   :root{--bg:#0f0f0f;--bg2:#161616;--bg3:#1e1e1e;--bg4:#252525;--border:#2a2a2a;--border2:#333;--text:#e8e4dc;--text2:#8a8680;--text3:#555;--orange:#e8620a;--orange-dim:#3a1a06;--amber:#d4900a;--amber-dim:#2e1f04;--teal:#0a9e8a;--teal-dim:#041e1b;--blue:#1a7fd4;--blue-dim:#051a2e;--red:#d43a2a;--red-dim:#2e0a06;--green:#2ab84a;--green-dim:#062010;--purple:#8a4ad4;--purple-dim:#1a0a2e;--radius:6px;--radius-lg:10px;}
@@ -152,7 +152,7 @@
       <div class="auth-avatar" id="authAvatar">?</div>
       <div><div class="auth-name" id="authName">—</div><div class="auth-email" id="authEmail">—</div></div>
     </div>
-    <button class="btn btn-primary" id="signInBtn" onclick="signIn()" disabled style="opacity:0.6;cursor:not-allowed;">
+    <button class="btn btn-primary" id="signInBtn" onclick="signIn()" disabled style="opacity:0.5;cursor:not-allowed;">
       <svg width="17" height="17" viewBox="0 0 23 23" fill="none"><rect x="1" y="1" width="10" height="10" fill="#f25022"/><rect x="12" y="1" width="10" height="10" fill="#7fba00"/><rect x="1" y="12" width="10" height="10" fill="#00a4ef"/><rect x="12" y="12" width="10" height="10" fill="#ffb900"/></svg>
       Sign in with Microsoft 365
     </button>
@@ -316,20 +316,31 @@ const DEMO=[
 // ══════════════════════════════════════════
 // MSAL AUTH
 // ══════════════════════════════════════════
+function enableSignIn(){
+  const btn=document.getElementById('signInBtn');
+  if(btn){ btn.disabled=false; btn.style.opacity='1'; btn.style.cursor='pointer'; btn.textContent=''; btn.innerHTML='<svg width="17" height="17" viewBox="0 0 23 23" fill="none"><rect x="1" y="1" width="10" height="10" fill="#f25022"/><rect x="12" y="1" width="10" height="10" fill="#7fba00"/><rect x="1" y="12" width="10" height="10" fill="#00a4ef"/><rect x="12" y="12" width="10" height="10" fill="#ffb900"/></svg> Sign in with Microsoft 365'; }
+}
+
 async function initMSAL(){
   try{
+    // Wait for msal to be available
+    let attempts=0;
+    while(typeof msal === 'undefined' && attempts < 20){
+      await new Promise(r=>setTimeout(r,200));
+      attempts++;
+    }
+    if(typeof msal === 'undefined'){ throw new Error('MSAL library failed to load'); }
+
     msalApp=new msal.PublicClientApplication(msalCfg);
-    await msalApp.initialize();
+    // MSAL 2.x doesn't need initialize() — skip it
     const resp=await msalApp.handleRedirectPromise();
     if(resp){ token=resp.accessToken; msalApp.setActiveAccount(resp.account); await afterLogin(); return; }
     const accs=msalApp.getAllAccounts();
     if(accs.length){ msalApp.setActiveAccount(accs[0]); await getToken(); await afterLogin(); return; }
-    // MSAL ready — enable sign in button
-    const btn=document.getElementById('signInBtn');
-    if(btn){ btn.disabled=false; btn.style.opacity='1'; btn.style.cursor='pointer'; }
-  }catch(e){ console.error('MSAL init:',e);
-    const btn=document.getElementById('signInBtn');
-    if(btn){ btn.disabled=false; btn.style.opacity='1'; btn.style.cursor='pointer'; }
+    enableSignIn();
+  }catch(e){ 
+    console.error('MSAL init:',e);
+    enableSignIn();
   }
 }
 
@@ -341,15 +352,16 @@ async function getToken(){
 }
 
 async function signIn(){
+  if(!msalApp){ setAuthStatus('Still initialising — please wait a moment and try again.','s-info'); return; }
   const btn=document.getElementById('signInBtn');
   btn.disabled=true; btn.innerHTML='<span class="spinner"></span> Signing in…';
   setAuthStatus('Opening Microsoft sign-in…','s-info');
   try{
     let resp;
-    try{ resp=await msalApp.loginPopup({scopes:SCOPES}); }
+    try{ resp=await msalApp.loginPopup({scopes:SCOPES,prompt:'select_account'}); }
     catch(pe){
-      if(pe.errorCode==='popup_window_error'||pe.errorCode==='empty_window_error'){
-        setAuthStatus('Redirecting to Microsoft…','s-info');
+      if(pe.errorCode==='popup_window_error'||pe.errorCode==='empty_window_error'||String(pe.message).includes('popup')){
+        setAuthStatus('Redirecting to Microsoft login…','s-info');
         await msalApp.loginRedirect({scopes:SCOPES}); return;
       }
       throw pe;
